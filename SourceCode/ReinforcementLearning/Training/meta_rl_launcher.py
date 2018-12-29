@@ -107,7 +107,7 @@ for t in tests:
             # params are added to allow modular layer creation
             nmd_params = [[], [''], []]
             # Definition of the nmd net's feed-forward layers
-            ff_part = ['ParametrizedSaturatedReluLayer'] # PSR
+            ff_part = ['AdaptiveSaturatedReluLayer'] # PSR
             ff_sizes = [10]
             # params are added to allow modular layer creation
             ff_params = [['']]
@@ -123,7 +123,7 @@ for t in tests:
             nmd_sizes = [100, 75, 45, [15, 15, 15]]
             nmd_params = [[], [], [''], []]
             # Definition of the feed-forward part
-            ff_part = ['ParametrizedSaturatedReluLayer', 'ParametrizedSaturatedReluLayer']
+            ff_part = ['AdaptiveSaturatedReluLayer', 'AdaptiveSaturatedReluLayer']
             ff_sizes = [30, 10]
             ff_params = [[''], ['']]
             # Define the connections between layers
@@ -137,14 +137,14 @@ for t in tests:
         # In this case it allows to remember the action taken as well as the reward obtained at the previous time-step and put them as 
         # inputs for the next time-step.
         # This trick is needed due to the order of definition of the different layers for the two nmd net's parts.
-        policy_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part +['MemoryLayer', 'ParametricIdentity', 'ParametricIdentity']
+        policy_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part +['MemoryLayer', 'AdaptiveLogitsLayer2', 'AdaptiveLogitsLayer2']
         policy_sizes = [manager.to_pickle['nofb_obs_dim']] +  ff_sizes + [manager.to_pickle['obs_dim']] + nmd_sizes + \
                        [manager.to_pickle['nofb_obs_dim'], manager.to_pickle['act_dim'], manager.to_pickle['act_dim']]
         policy_params = [[]] + ff_params +[[]] + nmd_params + [[],[],[]]
         policy_linker = [manager.to_pickle['classic_observations']] + ff_linker +  [manager.to_pickle['fb_observations']+[[nmd_o+1,0]]] + nmd_linker + \
                         [manager.to_pickle['classic_observations'], [[len(ff_part),0],[nmd_o,len(nmd_sizes[-1])-1]], [[len(ff_part),0],[nmd_o,len(nmd_sizes[-1])-1]]]
 
-        value_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part + ['MemoryLayer', 'ParametricIdentity']
+        value_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part + ['MemoryLayer', 'AdaptiveLogitsLayer2']
         value_sizes = [manager.to_pickle['nofb_obs_dim']] + ff_sizes + [manager.to_pickle['obs_dim']] + nmd_sizes + \
                        [manager.to_pickle['nofb_obs_dim'], 1]
         value_params = [[]] + ff_params + [[]] + nmd_params + [[], []]
