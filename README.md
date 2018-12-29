@@ -2,9 +2,14 @@
 
 NMDNET is a Python library which implements the tests and benchmarks carried for https://arxiv.org/abs/1812.09113.
 
+## Important note
+
+There are currently two directories in this repository. The CleanCode repository contains code that should be clean and readable whil the SourceCode repository contains the code as it was developped for running the benchmarks in the article. Some changes have been made in the code of the "CleanCode" repository and are currently being tested, to make sure that a bug has not been introduced. Until verification of the results, the SourceCode will be available to make sure that the article's results are reproducible.
+
+
 ## Usage
 
-Go into the top level directory, that is "cd .../nmd_net". From that directory, launch the "meta_rl_launcher" as:
+Go into the source code directory, that is "cd .../nmd_net/SourceCode/". From that directory, launch the "meta_rl_launcher" as:
 
 ```bash
 ./ReinforcementLearning/Training/meta_rl_launcher.py
