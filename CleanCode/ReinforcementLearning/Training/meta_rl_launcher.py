@@ -180,7 +180,7 @@ for t in tests:
                                policy_params, value_params, policy_linker, value_linker,
                                init_policy_logvariance = -1.0, init_eta = 50.0, init_beta = 1.0,
                                kl_target = 0.003, value_lr = 6e-3, policy_lr = 2e-4, init_plr_mult = 1.0,
-                               time_steps = 1, cpu_only=cpu_only, save_policy_every=10)
+                               time_steps = 200, cpu_only=cpu_only, save_policy_every=10)
     # Handle the case where one wants to load an already existing test. i.e. a test number with a type and a 
     # benchmark number that has already been ran.
     else:
