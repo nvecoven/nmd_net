@@ -298,6 +298,9 @@ class Network(NetworkSupervisor):
             processed_batches = self.generate_samples_with_states(data, state_carries)
             previous_states, batch_d, batch_l = processed_batches
         training_op = self.op_dict['train'][train_op_number]
+        batch_size = min(batch_size, batch_d.shape[0])
+        if batch_size < 0:
+            batch_size = batch_d.shape[0]
         for epoch in range(nbr_epochs):
             # Shuffle datas
             shuffeling_indexes = np.random.choice(batch_d.shape[0], batch_d.shape[0], replace=False)
@@ -332,6 +335,9 @@ class Network(NetworkSupervisor):
             processed_batches = self.generate_samples_with_states(data, state_carries)
             previous_states, batch_d, batch_l = processed_batches
         training_op = self.op_dict['train'][train_op_number]
+        batch_size = min(batch_size, batch_d.shape[0])
+        if batch_size < 0:
+            batch_size = batch_d.shape[0]
         for i in range(training_iterations):
             batch_indexes = np.random.choice(batch_d.shape[0], batch_size, replace = False)
             d = {self.op_dict['inputs'][0]: batch_d[batch_indexes],

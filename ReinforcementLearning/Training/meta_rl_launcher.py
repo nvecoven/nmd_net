@@ -8,11 +8,11 @@ parser.add_argument("-tb", "--test_batch", type = int)
 parser.add_argument("-bs", "--batch_size", type = int)
 parser.add_argument("-o", "--offset", type = int)
 parser.add_argument("-e", "--episodes", type = int, required = True)
-parser.add_argument("-p", "--path", type = str)
 parser.add_argument("-t", "--type", type = str)
 parser.add_argument("-l", "--load", type = str)
 parser.add_argument("-g", "--gpu", action="store_true")
 parser.add_argument("-b", "--benchmark", type = int, required = True)
+parser.add_argument("-p", "--intra_change_prob", type = float)
 
 args = parser.parse_args()
 
@@ -46,6 +46,12 @@ if args.batch_size:
 else:
     test_batch_size = 1
 
+# Always set to zero in the paper. Used to change dynamically environments inside episodes themselves.
+if args.intra_change_prob:
+    intra_change_prob = args.intra_change_prob
+else:
+    intra_change_prob = 0.0
+
 if args.type:
     type = args.type
 else:
@@ -75,7 +81,7 @@ elif benchmark == 2:
 
 # Benchmark 3
 elif benchmark == 3:
-    env = MultipleReferences(number_dots = 2, nbr_good = 1, fixed_good_refs = False, 
+    env = MultipleReferences(number_dots = 2, nbr_good = 1, fixed_good_refs = False,
                              control_speed = False, fixed_references = True, 
                              fixed_position = False, stop_input = False, intra_var_pourcentage=0.0,
                              max_steps=5000, continuousmoving_references=False, 
@@ -92,11 +98,12 @@ tests = np.arange(test_batch * test_batch_size + offset, (test_batch+1) * test_b
 for t in tests:
     print ("#!#!#!#!#!#!#!#!#! test ", str(t), "#!#!#!#!#!#!#!#!#!#!#!")
 
-    name = "benchmark" + str(benchmark) + "_" + type + "_" + str(t)
+    name = "benchmark" + str(benchmark) + "_intrachangeprob" + str(intra_change_prob).replace('.','') +\
+           "_" + type + "_" + str(t)
     
-    manager = PPO_manager(env, policy_epochs = 2, value_epochs = 1, value_replay_buffer_mult = 3,
+    manager = PPO_manager(env, policy_epochs = 20, value_epochs = 10, value_replay_buffer_mult = 3,
                           policy_replay_buffer_mult = 1, name = name, check_early_stop=10, normalize_obs=False,
-                          value_batch_size=250, trajectory_train_cut= train_cut)
+                          value_batch_size=25, trajectory_train_cut= train_cut, intra_change_prob=intra_change_prob)
 
     ############################### AVAL #########################################
     if type == 'nmdnet':
@@ -153,7 +160,7 @@ for t in tests:
                        [manager.to_pickle['classic_observations'], [[len(ff_part), 0], [nmd_o, len(nmd_sizes[-1]) - 1]]]
 
     ############################### CLASSIC RECURRENT #######################################
-    if type == 'recurrent':
+    elif type == 'recurrent':
         if benchmark == 1:
             types = ['GruLayer', 'SaturatedReluLayer', 'SaturatedReluLayer']
             sizes = [50, 20, 10]

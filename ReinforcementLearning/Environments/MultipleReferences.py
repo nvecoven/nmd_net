@@ -178,7 +178,7 @@ class MultipleReferences():
         for r in self.refs:
             self.moving_directions.append(np.random.rand() * 2 * np.pi)
 
-    def reset(self, params = None):
+    def reset(self, params = None, reset_episode_step = True):
         self.switches = params
         if self.continuousmoving_references:
             self.reset_moving_drections()
@@ -186,7 +186,8 @@ class MultipleReferences():
             self.switches = []
         self.stop_counter = 0
         self.change = [0,0]
-        self.episode_step = 0
+        if reset_episode_step:
+            self.episode_step = 0
         self.create_references()
         self.stopped = -1
         position = self.create_pos()

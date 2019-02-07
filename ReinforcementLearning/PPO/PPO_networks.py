@@ -129,15 +129,13 @@ class PPO_networks(object):
 
     # Critic's update
     def update_value_function(self, trajectories, nbr_epochs, batch_size = 50):
-        bs = min(batch_size, len(trajectories))
         self.model.fit_epoch(data=trajectories, nbr_epochs=nbr_epochs,
-                             batch_size=bs, learning_rate=self.to_pickle['value_lr'], train_op_number=1)
+                             batch_size=batch_size, learning_rate=self.to_pickle['value_lr'], train_op_number=1)
 
     # Actor's update. 
     def update_policy(self, trajectories, nbr_epochs, batch_size = 50, check_early_stop = 5):
         self.save_params('/tmp/' + self.to_pickle['name'])
 
-        bs = min(batch_size, len(trajectories))
         old_means_vars = self.model.predict(trajectories, prediction_nbr=4)[0]
         for t, tmv in zip(trajectories, old_means_vars):
             t[:,self.to_pickle['indexes']['eta'][0]] = self.to_pickle['eta']
@@ -147,7 +145,7 @@ class PPO_networks(object):
 
         processed_batches = None
         processed_batches = self.model.fit_epoch(data=trajectories, nbr_epochs=nbr_epochs,
-                                                 batch_size=bs, 
+                                                 batch_size=batch_size,
                                                  learning_rate=self.to_pickle['policy_lr'] * self.to_pickle['lr_multiplier'],
                                                  train_op_number=0,
                                                  verbose=False, state_carries = None, processed_batches = processed_batches)

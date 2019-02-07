@@ -16,14 +16,17 @@ class PPO_manager():
                  value_replay_buffer_mult = 3, policy_replay_buffer_mult = 1, 
                  normalize_obs = True, name = '', load = False, suffix = '', 
                  model_suffix = '_initialmodel', cpu_only = False,
-                 value_batch_size = 50, trajectory_train_cut = 2000):
+                 value_batch_size = 50, trajectory_train_cut = 2000,
+                 intra_change_prob = 0.0):
         self.env = env
         # In case the test has never been ran
         if not load:
             self.to_pickle = {}
             self.to_pickle['episode'] = 0
+            self.to_pickle['intra_changes'] = []
             self.to_pickle['trajectory_train_cut'] = trajectory_train_cut # L' hyper-param
             # state-space dimension + action-space dimension + 1 -> dimension of the nmd net's recurrent part input
+            self.to_pickle['intra_change_prob'] = intra_change_prob
             self.to_pickle['obs_dim'] = env.obs_dim 
             self.to_pickle['act_dim'] = env.act_dim # action-space dimension
             self.to_pickle['nofb_obs_dim'] = env.nofb_obs_dim # nmd net's feed-forward part's input dimension
@@ -74,6 +77,7 @@ class PPO_manager():
         # previous manager's state.
         else:
             self.load_pickle(suffix = suffix, name = name)
+            self.to_pickle['intra_change_prob'] = intra_change_prob
             self.load_networks(suffix = suffix, model_suffix = model_suffix, cpu_only= cpu_only)
     
     # In case networks had previously been created, load the corresponding file based on the name and suffix.
@@ -120,6 +124,7 @@ class PPO_manager():
         obs = np.array([el.reset(params) for el in self.parallel_envs[:nbr_episodes]])
         eval_values = [[] for _ in range(nbr_episodes)]
         lengths = np.zeros(nbr_episodes)
+        changes = [0] * nbr_episodes
         length = 0
         while not np.all(dones):
             current_steps = np.zeros((nbr_episodes, self.to_pickle['inpvecdim']))
@@ -138,6 +143,9 @@ class PPO_manager():
             for cnt, env, action in zip(range(nbr_episodes), self.parallel_envs, actions):
                 if not dones[cnt]:
                     new_obs, reward, done, eval_val = env.take_step(action)
+                    if np.random.rand() < self.to_pickle['intra_change_prob']:
+                        changes[cnt] += 1
+                        new_obs = env.reset(params, reset_episode_step=False)
                     reward = np.float32(reward)
                     current_steps[cnt,
                     self.to_pickle['indexes']['rew'][0]:self.to_pickle['indexes']['rew'][-1]] = reward
@@ -153,6 +161,7 @@ class PPO_manager():
             episode_vec.append(current_steps) # Shape : [max_env_steps, batch_size, obs_dim]
         trajectories = np.stack(episode_vec, axis = 1) # Shape : [Batch_size, max_env_steps, obs_dim]
         trajectories = [el[:l] for el,l in zip(trajectories, lengths.astype(np.int32))]
+        self.to_pickle['intra_changes'] += changes
         if self.to_pickle['normalize_obs']:
             unscaled_obs = np.stack(unscaled_obs, axis = 1)
             unscaled_obs_traj = [el[:l] for el,l in zip(unscaled_obs, lengths)]
@@ -185,6 +194,7 @@ class PPO_manager():
         state = None
         eval_value = 0.0
         step = 0
+        changes = 0
         update_states = True
         not_yet_fixed = True
         while not done:
@@ -219,6 +229,9 @@ class PPO_manager():
             actions = actions.reshape((-1))
             current_step[self.to_pickle['indexes']['act'][0]:self.to_pickle['indexes']['act'][-1]] = actions
             obs, reward, done, eval_value = self.env.take_step(actions)
+            if np.random.rand() < self.to_pickle['intra_change_prob']:
+                self.env.reset(params, reset_episode_step=False)
+                changes += 1
             if show:
                 self.env.render()
             if not isinstance(reward, float):
@@ -226,6 +239,7 @@ class PPO_manager():
             current_step[self.to_pickle['indexes']['rew'][0]:self.to_pickle['indexes']['rew'][-1]] = np.float64(reward)
             episode_vec.append(current_step)
             step += 1
+        self.to_pickle['intra_changes'] += [changes]
         r_traj = [el[self.to_pickle['indexes']['rew'][0]] for el in np.array(episode_vec)]
         r = np.sum(r_traj)
         self.to_pickle['rewards_history'].append([r, r_traj, eval_value])
@@ -260,7 +274,7 @@ class PPO_manager():
             else:
                 rewards = t[:,self.to_pickle['indexes']['rew'][0]]
             disc_sum_rew = self.discount(rewards, gamma)
-            t[:,self.to_pickle['indexes']['disc_sum_rew'][0]] = disc_sum_rew
+            t[:, self.to_pickle['indexes']['disc_sum_rew'][0]] = disc_sum_rew
 
     # Add the critic's rating to all time-steps of trajectories
     def add_value(self, trajectories):
@@ -343,7 +357,7 @@ class PPO_manager():
 
                 # Update policy's parameters
                 policy.update_policy(policy_trajectories, nbr_epochs=self.to_pickle['policy_epochs'],
-                                     batch_size=batch_size*self.to_pickle['policy_replay_buffer_mult'],
+                                     batch_size=-1,
                                      check_early_stop=self.to_pickle['check_early_stop'])
                 f.write('Update took : ')
                 f.write(str(time.time()-start))

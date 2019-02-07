@@ -151,13 +151,14 @@ class WindyReference():
         to_concat_obs = self.references_dif
         return np.concatenate([to_concat_obs, prev_action, [prev_reward]])
 
-    def reset(self, params = None):
+    def reset(self, params = None, reset_episode_step = True):
         self.pos_switches = params
         if params == None:
             self.pos_switches = [[],[]]
         self.switches = params
         self.change = 0
-        self.episode_step = 0
+        if reset_episode_step:
+            self.episode_step = 0
         self.wind_main_direction = np.random.rand() * self.wind_possible_dir
         self.create_references()
         self.stopped = -1
