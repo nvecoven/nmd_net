@@ -46,7 +46,6 @@ if args.batch_size:
 else:
     test_batch_size = 1
 
-# Always set to zero in the paper. Used to change dynamically environments inside episodes themselves.
 if args.intra_change_prob:
     intra_change_prob = args.intra_change_prob
 else:
@@ -81,7 +80,7 @@ elif benchmark == 2:
 
 # Benchmark 3
 elif benchmark == 3:
-    env = MultipleReferences(number_dots = 2, nbr_good = 1, fixed_good_refs = False,
+    env = MultipleReferences(number_dots = 2, nbr_good = 1, fixed_good_refs = False, 
                              control_speed = False, fixed_references = True, 
                              fixed_position = False, stop_input = False, intra_var_pourcentage=0.0,
                              max_steps=5000, continuousmoving_references=False, 
@@ -98,12 +97,12 @@ tests = np.arange(test_batch * test_batch_size + offset, (test_batch+1) * test_b
 for t in tests:
     print ("#!#!#!#!#!#!#!#!#! test ", str(t), "#!#!#!#!#!#!#!#!#!#!#!")
 
-    name = "benchmark" + str(benchmark) + "_intrachangeprob" + str(intra_change_prob).replace('.','') +\
+    name = "finaltest_benchmark" + str(benchmark) + "_intrachangeprob" + str(intra_change_prob).replace('.','') +\
            "_" + type + "_" + str(t)
     
     manager = PPO_manager(env, policy_epochs = 20, value_epochs = 10, value_replay_buffer_mult = 3,
                           policy_replay_buffer_mult = 1, name = name, check_early_stop=10, normalize_obs=False,
-                          value_batch_size=25, trajectory_train_cut= train_cut, intra_change_prob=intra_change_prob)
+                          value_batch_size=25, trajectory_train_cut= train_cut)
 
     ############################### AVAL #########################################
     if type == 'nmdnet':

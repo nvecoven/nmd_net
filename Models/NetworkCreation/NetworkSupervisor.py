@@ -13,7 +13,6 @@ class NetworkSupervisor():
                  file_to_load = None, tensorboard = False, shuffle_intra = False, ptype = 'regression',
                  dropout = 0.5, name = 'my_network', net_params = None, cost_params = None, variables_lists = None,
                  file_to_load_prefix = '', file_to_load_custom = None, cpu_only = False):
-        np.random.seed(1)
         if not file_to_load == None:
             self.load_model(file_to_load, relative_prefix=file_to_load_prefix, cpu_only = cpu_only)
         elif not file_to_load_custom == None:
@@ -34,8 +33,7 @@ class NetworkSupervisor():
             self.create_network(time_steps, input_size, net_layers, net_layer_types, linker,
                                 cost_types, cost_functions_inputs,
                                 training_vars = training_vars, training_costs = training_costs,
-                                shuffle_intra = shuffle_intra, net_params = net_params, 
-                                cost_params = cost_params,
+                                shuffle_intra = shuffle_intra, net_params = net_params, cost_params = cost_params,
                                 variables_lists = variables_lists)
             # Whether or not to use GPU. Can be faster to run on CPU only for small networks
             # due to the overhead of memory transfer from VRAM to RAM happening when interacting with
@@ -79,7 +77,6 @@ class NetworkSupervisor():
         saver.save(self.sess, file_path)
         pickle.dump(self.to_pickle, open(file_path + '.pickle', 'wb'))
 
-
     # Load meta graph and parameters into a new session
     def load_model_custom_path(self, file_path, cpu_only = False):
         if not cpu_only:
@@ -96,7 +93,7 @@ class NetworkSupervisor():
         self.op_dict = {}
         for op in tf.get_default_graph().get_all_collection_keys():
             self.op_dict[op] = tf.get_collection(op)
-        
+
     # Save only the network's parameters
     def save_params_custom_path(self, file_path):
         print ("Writing only params...")

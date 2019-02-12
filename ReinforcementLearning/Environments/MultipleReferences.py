@@ -91,11 +91,7 @@ class MultipleReferences():
         direction = actions[0]
         direction *= np.pi
         direction = self.angle_normalize(direction)
-        if self.control_speed:
-            move = actions[1]
-            move = np.clip(move, 0.0, 5.0)
-        else:
-            move = 2.5
+        move = 2.5
 
         distances_to_references = []
         for r in self.refs:
@@ -178,7 +174,7 @@ class MultipleReferences():
         for r in self.refs:
             self.moving_directions.append(np.random.rand() * 2 * np.pi)
 
-    def reset(self, params = None, reset_episode_step = True):
+    def reset(self, params = None):
         self.switches = params
         if self.continuousmoving_references:
             self.reset_moving_drections()
@@ -186,8 +182,7 @@ class MultipleReferences():
             self.switches = []
         self.stop_counter = 0
         self.change = [0,0]
-        if reset_episode_step:
-            self.episode_step = 0
+        self.episode_step = 0
         self.create_references()
         self.stopped = -1
         position = self.create_pos()

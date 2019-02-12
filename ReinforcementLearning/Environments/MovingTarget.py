@@ -61,15 +61,14 @@ class MovingTarget():
         position, previous_action, previous_reward, time = self.state
         return np.array([position, previous_action, previous_reward])
 
-    def reset(self, params = None, reset_episode_step = True):
+    def reset(self, params = None):
         self.change = 0
         self.true_poses = []
         self.predicted_poses = []
         self.goal_poses = []
         self.distance = 0.0
         self.initial_pose = (np.random.rand()-0.5) * 1 * self.max_bound
-        if reset_episode_step:
-            self.episode_step = 0
+        self.episode_step = 0
         if self.fixed_offset:
             self.offset = 0.0
         else:

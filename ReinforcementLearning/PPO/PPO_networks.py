@@ -41,16 +41,16 @@ class PPO_networks(object):
                 value_sizes]
             policy_types, policy_linker, policy_params, policy_sizes = [policy_types], [policy_linker], [policy_params], [
                 policy_sizes]
-            
+
             # Each list inside the top level list defines a different part of the network.
             # net_layer_types[0] defines the actor
             # net_layer_types[1] defines the "mean" output of the actor
             # net_layer_types[2] defines the "logvariance" output of the actor
-            # net_layers_types[3] defines the logvariance with the current params of the network, 
+            # net_layers_types[3] defines the logvariance with the current params of the network,
             #                             the logvariance with the params of the network as were before the update,
             #                             the KL divergence between the current policy and the policy as before the update
             #                             the entropy of the current policy.
-            # net_layers_types[4] allows to sample an action from the mean and logvar, gather the mean and 
+            # net_layers_types[4] allows to sample an action from the mean and logvar, gather the mean and
             #                            logvar and gather the entropy and KL divergence
             # net_layers_types[5] defines the critic
             net_layer_types = policy_types + \
@@ -71,7 +71,6 @@ class PPO_networks(object):
                                 [[], [], [action_dim], [action_dim]],
                                 [[], [], []]] + \
                                value_params
-
             linker = policy_linker + \
                      [[[[0, len(net_layer_sizes[0]) - 1, 0]]],
                       [[[0, len(net_layer_sizes[0]) - 2, 0]], [[2, 0, 0]]],
@@ -99,7 +98,7 @@ class PPO_networks(object):
                                     [[4,2,0]]]
             # Defines training operations. Training vars refer to a list of variables defined in the net_layer_types.
             # i.e. 0 -> actor and 5 -> critic
-            # Training cost gives all the costs defined above that are averaged in a global loss function which will be 
+            # Training cost gives all the costs defined above that are averaged in a global loss function which will be
             # minimised by updating the corresponding training_vars
             # Hereunder, the actor's loss and critic's loss are defined.
             training_vars = [[0,], [5]]
@@ -132,7 +131,7 @@ class PPO_networks(object):
         self.model.fit_epoch(data=trajectories, nbr_epochs=nbr_epochs,
                              batch_size=batch_size, learning_rate=self.to_pickle['value_lr'], train_op_number=1)
 
-    # Actor's update. 
+    # Actor's update.
     def update_policy(self, trajectories, nbr_epochs, batch_size = 50, check_early_stop = 5):
         self.save_params('/tmp/' + self.to_pickle['name'])
 
@@ -143,31 +142,31 @@ class PPO_networks(object):
             t[:, self.to_pickle['indexes']['old_means'][0]:self.to_pickle['indexes']['old_means'][-1]] = tmv[:, :self.to_pickle['action_dim']]
             t[:, self.to_pickle['indexes']['old_vars'][0]:self.to_pickle['indexes']['old_vars'][-1]] = tmv[:, self.to_pickle['action_dim']:]
 
-        processed_batches = None
-        processed_batches = self.model.fit_epoch(data=trajectories, nbr_epochs=nbr_epochs,
-                                                 batch_size=batch_size,
-                                                 learning_rate=self.to_pickle['policy_lr'] * self.to_pickle['lr_multiplier'],
-                                                 train_op_number=0,
-                                                 verbose=False, state_carries = None, processed_batches = processed_batches)
+        self.model.fit_epoch(data=trajectories, nbr_epochs=nbr_epochs,
+                             batch_size=batch_size,
+                             learning_rate=self.to_pickle['policy_lr'] * self.to_pickle['lr_multiplier'],
+                             train_op_number=0,
+                             verbose=False)
 
+        # Compute KL and new entropy on FULL dataset
         kls_entropies = np.concatenate(self.model.predict(trajectories, prediction_nbr=5)[0])
         kl = np.mean(kls_entropies[:,0])
         entropy = np.mean(kls_entropies[:,1])
+
         # Reverse update criterion
 
         # The following numbers and procedure has been taken from https://github.com/pat-coady/trpo and proved to
         # work well
-        if kl > self.to_pickle['kl_targ'] * 4 or np.isnan(kl):
-            print ('RESTORING PREVIOUS PARAMETERS !')
+        if kl > self.to_pickle['kl_targ'] * 4 or np.isnan(kl):  # revert update
             self.restore_params('/tmp/'+self.to_pickle['name'])
-            self.to_pickle['beta'] = np.minimum(35, 1.5 * self.to_pickle['beta'])
+            self.to_pickle['beta'] = np.minimum(35, 1.5 * self.to_pickle['beta'])  # max clip beta
 
-        if kl > self.to_pickle['kl_targ'] * 2: 
-            self.to_pickle['beta'] = np.minimum(35, 1.5 * self.to_pickle['beta'])  
+        if kl > self.to_pickle['kl_targ'] * 2:
+            self.to_pickle['beta'] = np.minimum(35, 1.5 * self.to_pickle['beta'])
             if self.to_pickle['beta'] > 30:
                 self.to_pickle['lr_multiplier'] /= 1.5
         elif kl < self.to_pickle['kl_targ'] / 2:
-            self.to_pickle['beta'] = np.maximum(1 / 35, self.to_pickle['beta'] / 1.5)  
+            self.to_pickle['beta'] = np.maximum(1 / 35, self.to_pickle['beta'] / 1.5)
             if self.to_pickle['beta'] < (1 / 30):
                 self.to_pickle['lr_multiplier'] *= 1.5
         self.to_pickle['policy_update_counter'] += 1

@@ -117,7 +117,7 @@ class Network(NetworkSupervisor):
                                                   + 'layer' + str(l_number) + 'output' + str(on))
                                 nets_outputs[net_number][l_number] = layer_out
 
-                # Now that we have defined the network's structure, we need to define the cost and the outputs
+                # Now that we have defined everything, we need to define the cost and the outputs
                 with tf.name_scope('Costs_and_preds'):
                     cost_nbr = 0
                     for function_inputs, cost_cell in zip(cost_functions_inputs, cost_cells):
@@ -229,7 +229,7 @@ class Network(NetworkSupervisor):
         if self.to_pickle['tensorboard']:
             self.store_op(tf.summary.merge_all(), 'merged')
 
-    # Uses the one step graph to feed previous state and current input to get current output and next states 
+    # Uses the one step graph to feed previous state and current input to get current output and next states
     # ( + any potential network output thanks to elements)
     def take_step(self, input, prev_state=None, prediction_nbr = 0, elements = []):
         d = {self.op_dict['inputs_onestep'][-1]: input, self.op_dict['dropout'][0]:1.0,
@@ -298,9 +298,6 @@ class Network(NetworkSupervisor):
             processed_batches = self.generate_samples_with_states(data, state_carries)
             previous_states, batch_d, batch_l = processed_batches
         training_op = self.op_dict['train'][train_op_number]
-        batch_size = min(batch_size, batch_d.shape[0])
-        if batch_size < 0:
-            batch_size = batch_d.shape[0]
         for epoch in range(nbr_epochs):
             # Shuffle datas
             shuffeling_indexes = np.random.choice(batch_d.shape[0], batch_d.shape[0], replace=False)
@@ -309,6 +306,9 @@ class Network(NetworkSupervisor):
             for i in range(len(previous_states)):
                 previous_states[i] = previous_states[i][shuffeling_indexes]
             index = 0
+            batch_size = min(batch_size, batch_d.shape[0])
+            if batch_size < 0:
+                batch_size = batch_d.shape[0]
             while not index >= batch_d.shape[0]:
                 batch_indexes = np.arange(index, index+batch_size)
                 index += batch_size
@@ -326,7 +326,7 @@ class Network(NetworkSupervisor):
                 else:
                     self.sess.run(training_op, feed_dict=d)
         return processed_batches
-    
+
     # Fits the dataset for a given number of batches
     def fit_batch(self, data, training_iterations, train_op_number=0, batch_size=256,
                        verbose=False, learning_rate=1e-3, state_carries = None, processed_batches = None):
@@ -361,7 +361,6 @@ class Network(NetworkSupervisor):
         ts.start_producing(batch_size=batch_size, time_steps=self.to_pickle['time_steps'],
                            ordered=True, nbr_of_batches=1, train_last=train_last,
                            shuffle_intra = shuffle_intra)
-                           # shuffle_intra=self.to_pickle['shuffle_intra'])
         done = False
         scores = []
         while not done:
