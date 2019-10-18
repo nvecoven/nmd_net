@@ -143,14 +143,14 @@ for t in tests:
         # In this case it allows to remember the action taken as well as the reward obtained at the previous time-step and put them as 
         # inputs for the next time-step.
         # This trick is needed due to the order of definition of the different layers for the two nmd net's parts.
-        policy_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part +['MemoryLayer', 'ParametricIdentity', 'ParametricIdentity']
+        policy_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part +['MemoryLayer', 'AdaptiveLogitsLayer2', 'AdaptiveLogitsLayer2']
         policy_sizes = [manager.to_pickle['nofb_obs_dim']] +  ff_sizes + [manager.to_pickle['obs_dim']] + nmd_sizes + \
                        [manager.to_pickle['nofb_obs_dim'], manager.to_pickle['act_dim'], manager.to_pickle['act_dim']]
         policy_params = [[]] + ff_params +[[]] + nmd_params + [[],[],[]]
         policy_linker = [manager.to_pickle['classic_observations']] + ff_linker +  [manager.to_pickle['fb_observations']+[[nmd_o+1,0]]] + nmd_linker + \
                         [manager.to_pickle['classic_observations'], [[len(ff_part),0],[nmd_o,0]], [[len(ff_part),0],[nmd_o,0]]]
 
-        value_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part + ['MemoryLayer', 'ParametricIdentity']
+        value_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part + ['MemoryLayer', 'AdaptiveLogitsLayer2']
         value_sizes = [manager.to_pickle['nofb_obs_dim']] + ff_sizes + [manager.to_pickle['obs_dim']] + nmd_sizes + \
                        [manager.to_pickle['nofb_obs_dim'], 1]
         value_params = [[]] + ff_params + [[]] + nmd_params + [[], []]
