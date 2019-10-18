@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 # Takes one input which is the previous layer
-class ParametricIdentity():
+class AdaptiveLogitsLayer2():
     def __init__(self, supervisor, previous_size, size):
         self.prev_inp_size = previous_size[0]
         self.nmd_feat_size = previous_size[1]

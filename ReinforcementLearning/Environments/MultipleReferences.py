@@ -3,15 +3,25 @@ import pygame
 import sys
 import time
 
-"""
-Definition of the third benchmark's environment.
-See ReinforcementLearning/Training/meta_rl_launcher for the parameters used.
-"""
+# Define n references where each reference is associated to a given reward circle.
+# For an episode, reset position once one reference circle is reached
+# Episode length : 3000
+# If not in a reference circle -> no reward
+# Goal : after multiple reset -> always go to the best reference while avoiding bad ones
+# Input -> differences in x and y for all the references
+# Output -> The direction (maybe the intesity as well ?? ... probably a future test)
+
+# For now -> If fixed reference -> reference is fixed in between episodes of a same trajectory
+# For now -> If fixed position -> starting position is fixed in between episodes of a same trajectory
+# To simplify -> always fixed beginning position and fixed references
+# To complexify -> changing references in between episodes of a same trajectory
+# To complexify even more -> varying rewards from trajectories to others
 
 class MultipleReferences():
     def __init__(self, number_dots = 3, nbr_good = 1, fixed_good_refs = True, control_speed = False,
                  fixed_references = True, fixed_position = True, stop_input = False, intra_var_pourcentage = 0.00,
-                 max_steps = 2000, continuousmoving_references = False, targets_size_ratio = 0.5, bad_ref_rew = -50):
+                 max_steps = 2000, continuousmoving_references = False, targets_size_ratio = 0.5, bad_ref_rew = -50,
+                 ref_pos_passed = None):
         np.random.seed(1)
         self.number_dots = number_dots
         self.fixed_good_refs = fixed_good_refs
@@ -21,9 +31,14 @@ class MultipleReferences():
         self.fixed_references = fixed_references
         self.fixed_position = fixed_position
         self.nbr_good_ref = nbr_good
+        self.ref_pos_passed = ref_pos_passed
         self.nbr_bad_ref = number_dots-nbr_good
         self.stop_input = stop_input
         self.intra_var_percentage = intra_var_pourcentage
+        # if not self.control_speed:
+        #     self.act_dim = 1
+        # else:
+        #     self.act_dim = 2
         self.act_dim = 1
         self.bad_ref_rew = bad_ref_rew
 
@@ -41,7 +56,10 @@ class MultipleReferences():
         self.stop_duration = 10
         self.default_order = [i for i in range(number_dots)]
         self.pixel_coord_ratio = 640 / (4*self.max_size)
-        self.create_references()
+        if self.ref_pos_passed is None:
+            self.create_references()
+        else:
+            self.refs = [[self.ref_pos_passed[0][0], self.ref_pos_passed[0][1], True], [self.ref_pos_passed[1][0], self.ref_pos_passed[1][1], False]]
         self.default_pos = self.create_pos()
 
     def random_range(self, range_max):
@@ -86,11 +104,19 @@ class MultipleReferences():
         self.dt = 0.1
         self.episode_step += 1
         if self.episode_step in self.switches:
+            print ("REFERENCE SWITCH")
+            # self.order = np.flip(self.order, 0)
             for r in self.refs:
                 r[-1] = not r[-1]
         direction = actions[0]
         direction *= np.pi
         direction = self.angle_normalize(direction)
+        # if self.control_speed:
+        #     move = actions[1]
+        #     move = np.clip(move, 0.0, 5.0)
+        # else:
+        #     move = 2.5
+            # move = 12.5
         move = 2.5
 
         distances_to_references = []
@@ -105,6 +131,10 @@ class MultipleReferences():
             if isgood:
                 reward = 100.0
                 self.change[0] = self.change[0] + 1
+                # TODO : ADDED FOR TEST
+                # if np.random.rand() < self.intra_var_percentage:
+                #     self.order = np.random.choice(self.number_dots, self.number_dots, False)
+                #     self.create_references()
             else:
                 reward = self.bad_ref_rew
                 self.change[1] = self.change[1] + 1
@@ -114,6 +144,7 @@ class MultipleReferences():
                 new_pos = self.default_pos
             if not self.fixed_references:
                 self.create_references()
+            #self.change += 1
         else:
             new_pos = [pos[0] + np.cos(direction) * move * self.default_speed,
                        pos[1] + np.sin(direction) * move * self.default_speed]
@@ -143,6 +174,9 @@ class MultipleReferences():
             new_posy -= 4 * self.max_size
         elif new_posy < -2 * self.max_size:
             new_posy += 4 * self.max_size
+
+        # new_posx = np.clip(new_posx, -self.max_size*2, self.max_size*2)
+        # new_posy = np.clip(new_posy, -self.max_size*2, self.max_size*2)
 
         done = False
         if self.episode_step >= self.max_steps:
@@ -183,7 +217,8 @@ class MultipleReferences():
         self.stop_counter = 0
         self.change = [0,0]
         self.episode_step = 0
-        self.create_references()
+        if self.ref_pos_passed is None:
+            self.create_references()
         self.stopped = -1
         position = self.create_pos()
         if self.control_speed:

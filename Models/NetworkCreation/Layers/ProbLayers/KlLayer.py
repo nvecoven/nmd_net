@@ -14,8 +14,6 @@ class KlLayer():
         old_means = list_of_inputs[2]
         means = list_of_inputs[3]
 
-        # The following computation is correct only because the covariance matrix is diagonal.
-        # Thus A^-1 = 1/A element-wise. Also |A| = product of diagonal elements -> SUM in LOG prob.
         log_det_cov_old = tf.reduce_sum(old_log_vars, axis = 1)
         log_det_cov_new = tf.reduce_sum(log_vars, axis = 1)
         tr_old_new = tf.reduce_sum(tf.exp(old_log_vars - log_vars), axis = 1)

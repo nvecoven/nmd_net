@@ -3,11 +3,6 @@ import pygame
 import sys
 import time
 
-"""
-Definition of the second benchmark's environment.
-See ReinforcementLearning/Training/meta_rl_launcher for the parameters used.
-"""
-
 class WindyReference():
     def __init__(self, control_speed = False, intra_var_percentage = 0.0, fixed_position = False, fixed_reference = False, wind_half_cone = np.pi/4, wind_possible_dir = 2 * np.pi, wind_power = 0.0, max_steps = 2000):
         self.control_speed = control_speed
@@ -90,6 +85,7 @@ class WindyReference():
             move = np.clip(move, 0.0, 5.0)
         else:
             move = 2.5
+            # move = 12.5
 
         distances_to_references = []
         for r in self.refs:
@@ -99,7 +95,7 @@ class WindyReference():
         reward = -2
         if minimum_distance <= self.zone_size:
             reward = 100.0
-            # ADDED FOR INTERNAL TEST
+            # TODO : ADDED FOR TEST
             if np.random.rand() < self.intra_var_percentage:
                 self.create_references()
             if not self.fixed_position:

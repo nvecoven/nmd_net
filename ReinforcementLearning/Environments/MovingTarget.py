@@ -3,16 +3,12 @@ import pygame
 import sys
 import time
 
-"""
-Definition of the first benchmark's environment.
-See ReinforcementLearning/Training/meta_rl_launcher for the parameters used.
-"""
-
 class MovingTarget():
     def __init__(self, fixed_offset = False, intra_variation = True, intra_variation_frequency = 0.1, margin = 1.0,
                  act_multiplicator = 2.5, spike_reward = False):
         self.first_render = True
         self.act_dim = 1
+        # self.obs_dim = 4
         self.obs_dim = 3
         self.spike_reward = spike_reward
         self.nofb_obs_dim = 1
@@ -36,8 +32,11 @@ class MovingTarget():
         self.dt = 0.1
         self.episode_step += 1
         actions *= self.act_multiplicator
+        if self.episode_step in self.switches:
+            self.offset = (np.random.rand()-0.5) * 2.0 * 10.0
         goal = pos + self.offset
         actions = np.clip(actions, -2 * self.max_bound, 2 * self.max_bound)
+            
         self.true_poses.append(pos)
         self.predicted_poses.append(actions)
         self.goal_poses.append(goal)
@@ -50,6 +49,7 @@ class MovingTarget():
         else:
             new_pos = pos
             reward = np.clip(-np.abs(goal - actions), -2 * self.max_bound, 2 * self.max_bound)
+        # reward = np.clip(-np.abs(goal - actions), -2 * self.max_bound, 2 * self.max_bound)
         done = False
         self.distance += np.abs(actions - goal)
         if self.episode_step >= self.max_steps:
@@ -59,6 +59,7 @@ class MovingTarget():
 
     def _get_obs(self):
         position, previous_action, previous_reward, time = self.state
+        # return np.array([position, previous_action, previous_reward, time * 1e-3])
         return np.array([position, previous_action, previous_reward])
 
     def reset(self, params = None):
@@ -69,6 +70,10 @@ class MovingTarget():
         self.distance = 0.0
         self.initial_pose = (np.random.rand()-0.5) * 1 * self.max_bound
         self.episode_step = 0
+        if params is None:
+            self.switches = []
+        else:
+            self.switches = params
         if self.fixed_offset:
             self.offset = 0.0
         else:

@@ -74,7 +74,7 @@ if benchmark == 1:
 # Benchmark 2
 elif benchmark == 2:
     env = WindyReference(control_speed = False, intra_var_percentage = 0.0, fixed_position = False,
-                         fixed_reference = True, wind_half_cone=np.pi/5, wind_possible_dir=2*np.pi, 
+                         fixed_reference = True, wind_half_cone=np.pi/4, wind_possible_dir=2*np.pi, 
                          wind_power = 1.0, max_steps = 4000)
     train_cut = 2000
 
@@ -109,11 +109,11 @@ for t in tests:
         if benchmark == 1:
             # Definition of the nmd net's recurrent layers
             nmd_part = ['GruLayer', 'ReluLayer', 'SplitLayer']
-            nmd_sizes = [50, 20, [10, 10]]
+            nmd_sizes = [50, 20, [20]]
             # params are added to allow modular layer creation
             nmd_params = [[], [''], []]
             # Definition of the nmd net's feed-forward layers
-            ff_part = ['ParametrizedSaturatedReluLayer'] # PSR
+            ff_part = ['AdaptiveSaturatedReluLayer'] # PSR
             ff_sizes = [10]
             # params are added to allow modular layer creation
             ff_params = [['']]
@@ -126,17 +126,17 @@ for t in tests:
             # Same architecture is used for benchmark 2 and benchmark 3
             # Definition of the recurrent part
             nmd_part = ['GruLayer', 'GruLayer', 'ReluLayer', 'SplitLayer']
-            nmd_sizes = [100, 75, 45, [15, 15, 15]]
+            nmd_sizes = [100, 75, 45, [45]]
             nmd_params = [[], [], [''], []]
             # Definition of the feed-forward part
-            ff_part = ['ParametrizedSaturatedReluLayer', 'ParametrizedSaturatedReluLayer']
+            ff_part = ['AdaptiveSaturatedReluLayer', 'AdaptiveSaturatedReluLayer']
             ff_sizes = [30, 10]
             ff_params = [[''], ['']]
             # Define the connections between layers
             beg = len(ff_part)+1
             nmd_linker = [[[beg, 0], [beg + 1, 0]], [[beg + 1, 0], [beg + 2, 0]], [[beg + 2, 0]], [[beg + 3, 0]]]
             nmd_o = len(ff_part) + len(nmd_part) + 1
-            ff_linker = [[[0, 0], [nmd_o, 0]], [[1, 0], [nmd_o, 1]]]
+            ff_linker = [[[0, 0], [nmd_o, 0]], [[1, 0], [nmd_o, 0]]]
 
         # Now merge the previous definition with the correct inputs, outputs and helper layers
         # Memory layer is used so that it remembers the output of a given layer from the previous time-step.
@@ -148,7 +148,7 @@ for t in tests:
                        [manager.to_pickle['nofb_obs_dim'], manager.to_pickle['act_dim'], manager.to_pickle['act_dim']]
         policy_params = [[]] + ff_params +[[]] + nmd_params + [[],[],[]]
         policy_linker = [manager.to_pickle['classic_observations']] + ff_linker +  [manager.to_pickle['fb_observations']+[[nmd_o+1,0]]] + nmd_linker + \
-                        [manager.to_pickle['classic_observations'], [[len(ff_part),0],[nmd_o,len(nmd_sizes[-1])-1]], [[len(ff_part),0],[nmd_o,len(nmd_sizes[-1])-1]]]
+                        [manager.to_pickle['classic_observations'], [[len(ff_part),0],[nmd_o,0]], [[len(ff_part),0],[nmd_o,0]]]
 
         value_types = ['ConcatLayer'] + ff_part + ['ConcatLayer'] + nmd_part + ['MemoryLayer', 'ParametricIdentity']
         value_sizes = [manager.to_pickle['nofb_obs_dim']] + ff_sizes + [manager.to_pickle['obs_dim']] + nmd_sizes + \
@@ -156,12 +156,12 @@ for t in tests:
         value_params = [[]] + ff_params + [[]] + nmd_params + [[], []]
         value_linker = [manager.to_pickle['classic_observations']] + ff_linker + \
                        [manager.to_pickle['fb_observations'] + [[nmd_o + 1, 0]]] + nmd_linker + \
-                       [manager.to_pickle['classic_observations'], [[len(ff_part), 0], [nmd_o, len(nmd_sizes[-1]) - 1]]]
+                       [manager.to_pickle['classic_observations'], [[len(ff_part), 0], [nmd_o, 0]]]
 
     ############################### CLASSIC RECURRENT #######################################
     elif type == 'recurrent':
         if benchmark == 1:
-            types = ['GruLayer', 'SaturatedReluLayer', 'SaturatedReluLayer']
+            types = ['GruLayer', 'ReluLayer', 'ReluLayer']
             sizes = [50, 20, 10]
             params = [[], [], []]
         else:

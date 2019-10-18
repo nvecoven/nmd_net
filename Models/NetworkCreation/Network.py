@@ -36,6 +36,8 @@ class Network(NetworkSupervisor):
             self.to_pickle['time_steps'] = 1
             self.to_pickle['shuffle_intra'] = True
 
+        # Initialise cost cell
+        # TODO : If we need multiple costs (entropy , ... ), possibility to create a list of cost cells and not only one param
         cost_cells = []
         for cc, cp in zip(cost_types, cost_params):
             cost_cells.append(self.cost_layer(cc, cp, self))
@@ -64,7 +66,7 @@ class Network(NetworkSupervisor):
                 nets.append(current_net_layers)
                 net_number += 1
 
-        # Create default output for linking (corresponds to the initial value for each neuron's output)
+        # Create default output for linking
         with tf.name_scope('Default_outputs'):
             default_nets_outputs = []
             for cnt1, net in enumerate(nets):
@@ -83,7 +85,7 @@ class Network(NetworkSupervisor):
         predictions = [[] for _ in cost_types]
         outputs = [[] for _ in cost_types]
 
-        # Copy list of tensors to reuse for one step graph (used when interacting with the environment)
+        # Copy list of tensors to reuse for one step graph
         nets_outputs = []
         for el in default_nets_outputs:
             cur = []
@@ -164,8 +166,10 @@ class Network(NetworkSupervisor):
                 if isinstance(train_cost, list):
                     cur_cost = []
                     for tc in train_cost:
+                        # cur_cost.append(tf.reduce_mean(self.op_dict['cutted_cost'][tc]))
                         cur_cost.append(self.op_dict['cutted_cost'][tc])
                 else:
+                    # cur_cost = [tf.reduce_mean(self.op_dict['cutted_cost'][train_cost])]
                     cur_cost = [self.op_dict['cutted_cost'][train_cost]]
                 print('Optimising cost : ', cur_cost)
                 print('----------------')
@@ -229,8 +233,6 @@ class Network(NetworkSupervisor):
         if self.to_pickle['tensorboard']:
             self.store_op(tf.summary.merge_all(), 'merged')
 
-    # Uses the one step graph to feed previous state and current input to get current output and next states
-    # ( + any potential network output thanks to elements)
     def take_step(self, input, prev_state=None, prediction_nbr = 0, elements = []):
         d = {self.op_dict['inputs_onestep'][-1]: input, self.op_dict['dropout'][0]:1.0,
              self.op_dict['inputs'][-1]:np.zeros((len(input), self.to_pickle['time_steps'], self.to_pickle['input_size']))}
@@ -255,7 +257,62 @@ class Network(NetworkSupervisor):
     def one_step_with_values(self, input, elements, prev_state = None):
         return self.take_step(input, prev_state, elements = elements)
 
-    # Feed forward pass to get all the states before splitting the trajectories to reduce the number of gradient updates
+    def fit(self, data, training_iterations, train_op_number=0, batch_size=25,
+            carry_states=True, take_full_steps=True, what_to_train=None, train_last=False,
+            verbose=False, learning_rate=1e-3):
+        ts = TrajectoriesSplitterNoGt(data)
+        time_steps = self.to_pickle['time_steps']
+        if take_full_steps:
+            ts.start_producing(batch_size, time_steps, training_iterations, train_last=train_last,
+                               shuffle_intra=self.to_pickle['shuffle_intra'])
+        else:
+            ts.start_producing(batch_size, time_steps, training_iterations, steps_between_batches=1,
+                               train_last=train_last,
+                               shuffle_intra=self.to_pickle['shuffle_intra'])
+        training_op = self.op_dict['train'][train_op_number]
+        for i in range(training_iterations):
+            if verbose:
+                print(i)
+            full_batch_d, full_batch_l = ts.get_batch()
+            previous_states = None
+            for batch_d, batch_l in zip(full_batch_d, full_batch_l):
+                self.to_pickle['training_iter'] += 1
+                if not what_to_train == None:
+                    batch_l = [what_to_train for _ in batch_l]
+                d = {self.op_dict['inputs'][0]: batch_d,
+                     self.op_dict['inputs_onestep'][0]: batch_d[:][0][:],
+                     self.op_dict['input_sequences_length'][0]: batch_l,
+                     self.op_dict['is_training'][0]: True,
+                     self.op_dict['dropout'][0]: self.to_pickle['dropout'],
+                     self.op_dict['lr'][0]: learning_rate}
+                if carry_states and previous_states != None:
+                    for s, obs in zip(self.op_dict['default_output'], previous_states):
+                        d[s] = obs
+                if carry_states:
+                    if take_full_steps:
+                        if self.to_pickle['tensorboard']:
+                            previous_states, summary, _ = self.sess.run(
+                                [self.op_dict['previous_outputs'], self.op_dict['merged'][0],
+                                 training_op], feed_dict=d)
+                        else:
+                            previous_states, _ = self.sess.run([self.op_dict['previous_outputs'], training_op],
+                                                               feed_dict=d)
+                    else:
+                        if self.to_pickle['tensorboard']:
+                            previous_states, summary, _ = self.sess.run(
+                                [self.op_dict['previous_outputs_onestep'], self.op_dict['merged'][0],
+                                 training_op], feed_dict=d)
+                        else:
+                            previous_states, _ = self.sess.run([self.op_dict['previous_outputs_onestep'], training_op],
+                                                               feed_dict=d)
+                else:
+                    if self.to_pickle['tensorboard']:
+                        summary, _ = self.sess.run([self.op_dict['merged'][0], training_op], feed_dict=d)
+                    else:
+                        self.sess.run(training_op, feed_dict=d)
+                if self.to_pickle['tensorboard']:
+                    self.summary_writer.add_summary(summary, self.to_pickle['training_iter'])
+
     def generate_samples_with_states(self, data, state_carries = None):
         time_steps = self.to_pickle['time_steps']
         if state_carries == None:
@@ -290,7 +347,6 @@ class Network(NetworkSupervisor):
         batch_l = np.array(np.concatenate(batch_l))
         return previous_states, batch_d, batch_l
 
-    # Fit the dataset for a given number of epochs
     def fit_epoch(self, data, nbr_epochs, train_op_number=0, batch_size=256,
                   verbose=False, learning_rate=1e-3, state_carries = None, processed_batches = None):
         batch_d, batch_l, previous_states = None, None, None
@@ -306,9 +362,6 @@ class Network(NetworkSupervisor):
             for i in range(len(previous_states)):
                 previous_states[i] = previous_states[i][shuffeling_indexes]
             index = 0
-            batch_size = min(batch_size, batch_d.shape[0])
-            if batch_size < 0:
-                batch_size = batch_d.shape[0]
             while not index >= batch_d.shape[0]:
                 batch_indexes = np.arange(index, index+batch_size)
                 index += batch_size
@@ -327,7 +380,6 @@ class Network(NetworkSupervisor):
                     self.sess.run(training_op, feed_dict=d)
         return processed_batches
 
-    # Fits the dataset for a given number of batches
     def fit_batch(self, data, training_iterations, train_op_number=0, batch_size=256,
                        verbose=False, learning_rate=1e-3, state_carries = None, processed_batches = None):
         batch_d, batch_l, previous_states = None, None, None
@@ -335,9 +387,6 @@ class Network(NetworkSupervisor):
             processed_batches = self.generate_samples_with_states(data, state_carries)
             previous_states, batch_d, batch_l = processed_batches
         training_op = self.op_dict['train'][train_op_number]
-        batch_size = min(batch_size, batch_d.shape[0])
-        if batch_size < 0:
-            batch_size = batch_d.shape[0]
         for i in range(training_iterations):
             batch_indexes = np.random.choice(batch_d.shape[0], batch_size, replace = False)
             d = {self.op_dict['inputs'][0]: batch_d[batch_indexes],
@@ -355,12 +404,71 @@ class Network(NetworkSupervisor):
                 self.sess.run(training_op, feed_dict=d)
         return processed_batches
 
+
+
+    def fit_full_batch(self, data, training_iterations, train_op_number=0, batch_size=25,
+                       verbose=False, learning_rate=1e-3, state_carries = None, old_dict = None):
+        time_steps = self.to_pickle['time_steps']
+        training_op = self.op_dict['train'][train_op_number]
+        if state_carries == None:
+            states_carries = self.predict(data)[1]
+        else:
+            states_carries = state_carries
+        for i in range(training_iterations):
+            if old_dict == None:
+                batch_d = []
+                batch_l = []
+                previous_states = []
+                batch_indexes = np.random.choice(len(data), min(batch_size, len(data)), replace = False)
+                default_state = [np.zeros_like(el) for el in states_carries[0][0]]
+                for cnt, index in enumerate(batch_indexes):
+                    current_traj = data[index]
+                    traj_states = states_carries[index]
+                    splitted_current_traj = [current_traj[i:i+time_steps] for i in range(0,len(current_traj),time_steps)]
+                    nbr_cuts = len(splitted_current_traj)
+                    last_length = len(splitted_current_traj[-1])
+                    current_l = [[1.0] * len(el) for el in splitted_current_traj]
+                    if not last_length == time_steps:
+                        zeros_obs_to_add = [np.zeros_like(splitted_current_traj[0][0]).tolist()] * (time_steps-last_length)
+                        splitted_current_traj[-1] = np.concatenate([splitted_current_traj[-1],zeros_obs_to_add])
+                        current_l[-1] += [0.0] * (time_steps-last_length)
+                    batch_d.append(np.array(splitted_current_traj))
+                    batch_l.append(np.array(current_l))
+                    for k in range(nbr_cuts):
+                        if k == 0:
+                            previous_states.append(default_state)
+                        else:
+                            previous_states.append(traj_states[k*time_steps-1])
+                previous_states = np.array(previous_states)
+                previous_states = [np.vstack(previous_states[:,i]) for i in range(previous_states.shape[1])]
+                batch_d = np.array(np.concatenate(batch_d))
+                batch_l = np.array(np.concatenate(batch_l))
+                if verbose:
+                    print(i)
+                d = {self.op_dict['inputs'][0]: batch_d,
+                     self.op_dict['inputs_onestep'][0]: batch_d[:][0][:],
+                     self.op_dict['input_sequences_length'][0]: batch_l,
+                     self.op_dict['is_training'][0]: True,
+                     self.op_dict['dropout'][0]: self.to_pickle['dropout'],
+                     self.op_dict['lr'][0]: learning_rate}
+                for s, obs in zip(self.op_dict['default_output'], previous_states):
+                    d[s] = obs
+            else:
+                d = old_dict
+            if self.to_pickle['tensorboard']:
+                summary, _ = self.sess.run([self.op_dict['merged'][0], training_op], feed_dict=d)
+                self.summary_writer.add_summary(summary, self.to_pickle['training_iter'])
+            else:
+                self.sess.run(training_op, feed_dict=d)
+        return states_carries, d
+
     def get_score(self, data, carry_state=True, batch_size=50, train_last=False, shuffle_intra = False,
                   cost_nbr = 0):
         ts = TrajectoriesSplitterNoGt(data)
         ts.start_producing(batch_size=batch_size, time_steps=self.to_pickle['time_steps'],
                            ordered=True, nbr_of_batches=1, train_last=train_last,
                            shuffle_intra = shuffle_intra)
+                           # shuffle_intra=self.to_pickle['shuffle_intra'])
         done = False
         scores = []
         while not done:
@@ -384,7 +492,6 @@ class Network(NetworkSupervisor):
         # handle lengths here ... not a simple_mean !
         return np.mean(scores)
 
-    # Get a given output over a dataset (as well as the internal states values)
     def predict(self, datas, max_batch = 200, prediction_nbr=0):
         i = 0
         feature_size = len(datas[0][0])
