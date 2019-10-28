@@ -1,6 +1,4 @@
-# NMDNET
-
-NMDNET is a Python library which implements the tests and benchmarks carried for https://arxiv.org/abs/1812.09113.
+#NMN
 
 ## Usage
 
